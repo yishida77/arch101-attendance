@@ -32,8 +32,11 @@
   <h1>ARCH 101 Attendance</h1>
   <div id="reader"></div>
   <div id="result">Point camera at QR code</div>
+  <button id="nextButton" onclick="scanNext()" style="display:none; margin-top: 20px; font-size: 18px; padding: 12px 24px;">
+    Scan Next Student
+  </button>
 
-    <script>
+  <script>
     const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5s3mBVSUgZ3jWCpUiizRgLO6xa904dKQjiLJtc-WFpWo3jlep6_pRUcNMrLSXwePNwA/exec";
 
     let isProcessing = false;
@@ -110,10 +113,5 @@
       resultDiv.textContent = "Camera error: " + err;
     });
   </script>
-
-  <button id="nextButton" onclick="scanNext()" style="display:none; margin-top: 20px; font-size: 18px; padding: 12px 24px;">
-  Scan Next Student
-</button>
-
 </body>
 </html>
