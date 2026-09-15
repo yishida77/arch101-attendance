@@ -37,81 +37,92 @@
   </button>
 
   <script>
-    const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5s3mBVSUgZ3jWCpUiizRgLO6xa904dKQjiLJtc-WFpWo3jlep6_pRUcNMrLSXwePNwA/exec";
+  const APPS_SCRIPT_URL = "https://script.google.com/macros/s/AKfycby5s3mBVSUgZ3jWCpUiizRgLO6xa904dKQjiLJtc-WFpWo3jlep6_pRUcNMrLSXwePNwA/exec";
 
-    let isProcessing = false;
-    let html5QrCode;
+  let isProcessing = false;
+  let html5QrCode;
 
-    const resultDiv = document.getElementById("result");
-    const nextButton = document.getElementById("nextButton");
+  const resultDiv = document.getElementById("result");
+  const nextButton = document.getElementById("nextButton");
 
-    function onScanSuccess(decodedText) {
-      if (isProcessing) return;
-      isProcessing = true;
+  function onScanSuccess(decodedText) {
+    if (isProcessing) return;
+    isProcessing = true;
 
-      // Pause the camera immediately so it can't re-trigger on the same code
-      html5QrCode.pause(true);
+    html5QrCode.pause(true);
 
-      resultDiv.className = "";
-      resultDiv.textContent = "Checking...";
+    resultDiv.className = "";
+    resultDiv.textContent = "Checking...";
 
-      fetch(APPS_SCRIPT_URL + "?qr=" + encodeURIComponent(decodedText))
-        .then(res => res.json())
-        .then(data => {
-          displayResult(data);
-          nextButton.style.display = "inline-block";
-        })
-        .catch(err => {
-          resultDiv.className = "status-error";
-          resultDiv.textContent = "ERROR: " + err.message;
-          nextButton.style.display = "inline-block";
-        });
-    }
+    const fetchStart = Date.now();
 
-    function displayResult(data) {
-      if (data.status === "RECORDED") {
-        resultDiv.className = "status-recorded";
-        resultDiv.textContent = data.name + "\nRecorded";
-      } else if (data.status === "ALREADY_RECORDED") {
-        resultDiv.className = "status-already";
-        resultDiv.textContent = data.name + "\nAlready Recorded";
-      } else if (data.status === "NOT_FOUND") {
+    fetch(APPS_SCRIPT_URL + "?qr=" + encodeURIComponent(decodedText))
+      .then(res => res.text())
+      .then(text => {
+        const elapsed = ((Date.now() - fetchStart) / 1000).toFixed(1);
+        
+        if (text.trim().startsWith("<")) {
+          throw new Error("Server busy (waited " + elapsed + "s) — try again");
+        }
+        
+        const data = JSON.parse(text);
+        displayResult(data, elapsed);
+        nextButton.style.display = "inline-block";
+      })
+      .catch(err => {
+        const elapsed = ((Date.now() - fetchStart) / 1000).toFixed(1);
         resultDiv.className = "status-error";
-        resultDiv.textContent = "STUDENT NOT FOUND";
-      } else if (data.status === "NO_CLASS_TODAY") {
-        resultDiv.className = "status-error";
-        resultDiv.textContent = "NO CLASS TODAY\nAttendance was not recorded.";
-      } else if (data.status === "OUTSIDE_TIME") {
-        resultDiv.className = "status-error";
-        resultDiv.textContent = "OUTSIDE ATTENDANCE TIME\nAttendance was not recorded.";
-      } else {
-        resultDiv.className = "status-error";
-        resultDiv.textContent = "ERROR: " + JSON.stringify(data);
-      }
-    }
+        resultDiv.textContent = "TRY AGAIN\n" + err.message + "\n(" + elapsed + "s)";
+        nextButton.style.display = "inline-block";
+      });
+  }
 
-    function scanNext() {
-      resultDiv.className = "";
-      resultDiv.textContent = "Point camera at QR code";
-      nextButton.style.display = "none";
-      isProcessing = false;
-      html5QrCode.resume();
-    }
-
-    function onScanFailure(error) {
-      // called continuously while no QR is detected — ignore
-    }
-
-    html5QrCode = new Html5Qrcode("reader");
-    html5QrCode.start(
-      { facingMode: "environment" },
-      { fps: 10, qrbox: { width: 250, height: 250 } },
-      onScanSuccess,
-      onScanFailure
-    ).catch(err => {
+  function displayResult(data, elapsed) {
+    let mainText = "";
+    if (data.status === "RECORDED") {
+      resultDiv.className = "status-recorded";
+      mainText = data.name + "\nRecorded";
+    } else if (data.status === "ALREADY_RECORDED") {
+      resultDiv.className = "status-already";
+      mainText = data.name + "\nAlready Recorded";
+    } else if (data.status === "NOT_FOUND") {
       resultDiv.className = "status-error";
-      resultDiv.textContent = "Camera error: " + err;
-    });
-  </script>
+      mainText = "STUDENT NOT FOUND";
+    } else if (data.status === "NO_CLASS_TODAY") {
+      resultDiv.className = "status-error";
+      mainText = "NO CLASS TODAY\nAttendance was not recorded.";
+    } else if (data.status === "OUTSIDE_TIME") {
+      resultDiv.className = "status-error";
+      mainText = "OUTSIDE ATTENDANCE TIME\nAttendance was not recorded.";
+    } else {
+      resultDiv.className = "status-error";
+      mainText = "ERROR: " + JSON.stringify(data);
+    }
+    resultDiv.textContent = mainText + "\n(" + elapsed + "s)";
+  }
+
+  function scanNext() {
+    resultDiv.className = "";
+    resultDiv.textContent = "Point camera at QR code";
+    nextButton.style.display = "none";
+    isProcessing = false;
+    html5QrCode.resume();
+  }
+
+  function onScanFailure(error) {
+    // called continuously while no QR is detected — ignore
+  }
+
+  html5QrCode = new Html5Qrcode("reader");
+  html5QrCode.start(
+    { facingMode: "environment" },
+    { fps: 10, qrbox: { width: 250, height: 250 } },
+    onScanSuccess,
+    onScanFailure
+  ).catch(err => {
+    resultDiv.className = "status-error";
+    resultDiv.textContent = "Camera error: " + err;
+  });
+</script>
 </body>
 </html>
